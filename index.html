@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis de Ventas - Sistema de Gestión</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Karla:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #151921;
+            --bg-card: #1a1f2b;
+            --accent-primary: #00d9ff;
+            --accent-secondary: #7c3aed;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border-color: #2d3748;
+            --shadow-glow: 0 0 20px rgba(0, 217, 255, 0.15);
+        }
+
+        body {
+            font-family: 'Karla', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(124, 58, 237, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.05) 0%, transparent 50%);
+        }
+
+        #app {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .header p {
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .upload-section {
+            background: var(--bg-card);
+            border: 2px dashed var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+            animation: fadeIn 0.6s ease-out 0.2s backwards;
+        }
+
+        .upload-section:hover {
+            border-color: var(--accent-primary);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-box {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .upload-box:hover::before {
+            left: 100%;
+        }
+
+        .upload-box:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .upload-box.has-file {
+            border-color: var(--accent-success);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent);
+        }
+
+        .upload-box input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .upload-box.has-file .upload-icon {
+            opacity: 1;
+        }
+
+        .upload-label {
+            font-weight: 600;
+            font-size: 1.125rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .upload-filename {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-success);
+            margin-top: 0.5rem;
+            word-break: break-all;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        input[type="date"] {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="date"]:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-group:hover {
+            background: var(--bg-card);
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--accent-primary);
+        }
+
+        .checkbox-group label {
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: var(--bg-primary);
+            border: none;
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'IBM Plex Mono', monospace;
+            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, var(--accent-success), #059669);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            margin-left: auto;
+        }
+
+        .btn-export:hover {
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            animation: fadeIn 0.6s ease-out 0.4s backwards;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+
+        .summary-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .summary-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .summary-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .results-section {
+            animation: fadeIn 0.6s ease-out 0.6s backwards;
+        }
+
+        .day-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .day-card:hover {
+            box-shadow: var(--shadow-glow);
+        }
+
+        .day-header {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .day-date {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .day-totals {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .day-total-item {
+            text-align: right;
+        }
+
+        .day-total-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+        }
+
+        .day-total-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .pv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1px;
+            background: var(--border-color);
+        }
+
+        .pv-item {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+        }
+
+        .pv-item.anulado {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), transparent);
+            border-left: 3px solid var(--accent-danger);
+        }
+
+        .pv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .pv-name {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--text-primary);
+        }
+
+        .pv-badge {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .pv-badge.anulado {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-danger);
+        }
+
+        .pv-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .pv-stat {
+            text-align: center;
+        }
+
+        .pv-stat-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .pv-stat-value {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .pv-stat-value.money {
+            color: var(--accent-success);
+        }
+
+        .pv-stat-value.weight {
+            color: var(--accent-warning);
+        }
+
+        .pv-stat-value.count {
+            color: var(--accent-primary);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        .no-data-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .day-totals {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pv-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>Sistema de Análisis de Ventas</h1>
+            <p>Gestión Integral por Sucursal y Punto de Venta</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="upload-grid">
+                <div class="upload-box" :class="{ 'has-file': file1 }" @click="$refs.file1Input.click()">
+                    <div class="upload-icon">{{ file1 ? '✓' : '📄' }}</div>
+                    <div class="upload-label">Sucursal 1 (PV 7/9907 + 8/9908)</div>
+                    <input type="file" ref="file1Input" @change="loadFile1" accept=".xlsx,.xls">
+                    <div class="upload-filename" v-if="file1">{{ file1Name }}</div>
+                </div>
+
+                <div class="upload-box" :class="{ 'has-file': file2 }" @click="$refs.file2Input.click()">
+                    <div class="upload-icon">{{ file2 ? '✓' : '📄' }}</div>
+                    <div class="upload-label">Sucursal 2 (PV 1/9901 + 2/9902)</div>
+                    <input type="file" ref="file2Input" @change="loadFile2" accept=".xlsx,.xls">
+                    <div class="upload-filename" v-if="file2">{{ file2Name }}</div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Desde:</label>
+                    <input type="date" v-model="dateFrom">
+                </div>
+                <div class="filter-group">
+                    <label>Hasta:</label>
+                    <input type="date" v-model="dateTo">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showAnuladas" v-model="showAnuladas">
+                    <label for="showAnuladas">Mostrar ventas anuladas</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="hideMoney" v-model="hideMoney">
+                    <label for="hideMoney">Ocultar dinero</label>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn" @click="processData" :disabled="!file1 && !file2">
+                    {{ isProcessed ? '🔄 Reprocesar Datos' : '▶ Procesar Datos' }}
+                </button>
+                <button class="btn btn-export" @click="exportToCSV" :disabled="!isProcessed" v-if="isProcessed">
+                    📥 Exportar a CSV
+                </button>
+            </div>
+        </div>
+
+        <div v-if="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 1rem;">Procesando datos...</p>
+        </div>
+
+        <template v-else-if="isProcessed && processedData.length > 0">
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-label">Total Ventas</div>
+                    <div class="summary-value">{{ totalVentas }}</div>
+                    <div class="summary-subtitle">transacciones</div>
+                </div>
+                <div class="summary-card" v-if="!hideMoney">
+                    <div class="summary-label">Total Dinero</div>
+                    <div class="summary-value">${{ formatNumber(totalDinero) }}</div>
+                    <div class="summary-subtitle">pesos argentinos</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Total Kilos</div>
+                    <div class="summary-value">{{ formatNumber(totalKilos) }}</div>
+                    <div class="summary-subtitle">kilogramos</div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Días Analizados</div>
+                    <div class="summary-value">{{ processedData.length }}</div>
+                    <div class="summary-subtitle">días con ventas</div>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <div v-for="day in processedData" :key="day.date" class="day-card">
+                    <div class="day-header">
+                        <div class="day-date">{{ day.dateFormatted }}</div>
+                        <div class="day-totals">
+                            <div class="day-total-item">
+                                <div class="day-total-label">Ventas</div>
+                                <div class="day-total-value">{{ day.totalVentas }}</div>
+                            </div>
+                            <div class="day-total-item" v-if="!hideMoney">
+                                <div class="day-total-label">Dinero</div>
+                                <div class="day-total-value">${{ formatNumber(day.totalDinero) }}</div>
+                            </div>
+                            <div class="day-total-item">
+                                <div class="day-total-label">Kilos</div>
+                                <div class="day-total-value">{{ formatNumber(day.totalKilos) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pv-grid">
+                        <template v-for="pv in day.puntosVenta" :key="pv.name + pv.anulado">
+                            <div class="pv-item" :class="{ 'anulado': pv.anulado }">
+                                <div class="pv-header">
+                                    <div class="pv-name">{{ pv.name }}</div>
+                                    <div class="pv-badge" :class="{ 'anulado': pv.anulado }">
+                                        {{ pv.anulado ? 'ANULADAS' : 'ACTIVAS' }}
+                                    </div>
+                                </div>
+                                <div class="pv-stats">
+                                    <div class="pv-stat">
+                                        <div class="pv-stat-label">Ventas</div>
+                                        <div class="pv-stat-value count">{{ pv.ventas }}</div>
+                                    </div>
+                                    <div class="pv-stat" v-if="!hideMoney">
+                                        <div class="pv-stat-label">Dinero</div>
+                                        <div class="pv-stat-value money">${{ formatNumber(pv.dinero) }}</div>
+                                    </div>
+                                    <div class="pv-stat">
+                                        <div class="pv-stat-label">Kilos</div>
+                                        <div class="pv-stat-value weight">{{ formatNumber(pv.kilos) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <div v-else class="no-data">
+            <div class="no-data-icon">📊</div>
+            <h3>No hay datos para mostrar</h3>
+            <p>Carga los archivos de Excel para comenzar el análisis</p>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    file1: null,
+                    file2: null,
+                    file1Name: '',
+                    file2Name: '',
+                    dateFrom: '',
+                    dateTo: '',
+                    showAnuladas: true,
+                    hideMoney: true,
+                    data1: [],
+                    data2: [],
+                    loading: false,
+                    isProcessed: false
+                };
+            },
+            computed: {
+                processedData() {
+                    const allData = [...this.data1, ...this.data2];
+                    if (allData.length === 0) return [];
+
+                    // Filtrar por fechas
+                    let filtered = allData;
+                    if (this.dateFrom || this.dateTo) {
+                        filtered = allData.filter(row => {
+                            const rowDate = this.parseDate(row.Fecha);
+                            if (!rowDate) return false;
+                            
+                            const from = this.dateFrom ? new Date(this.dateFrom + 'T00:00:00') : null;
+                            const to = this.dateTo ? new Date(this.dateTo + 'T23:59:59') : null;
+                            
+                            if (from && rowDate < from) return false;
+                            if (to && rowDate > to) return false;
+                            return true;
+                        });
+                    }
+
+                    // Agrupar por fecha
+                    const byDate = {};
+                    filtered.forEach(row => {
+                        const date = this.parseDate(row.Fecha);
+                        if (!date) return;
+
+                        const dateKey = date.toISOString().split('T')[0];
+                        if (!byDate[dateKey]) {
+                            byDate[dateKey] = [];
+                        }
+                        byDate[dateKey].push(row);
+                    });
+
+                    // Procesar cada día
+                    const result = Object.keys(byDate).sort().map(dateKey => {
+                        const dayData = byDate[dateKey];
+                        const date = new Date(dateKey + 'T12:00:00');
+                        
+                        return {
+                            date: dateKey,
+                            dateFormatted: this.formatDate(date),
+                            puntosVenta: this.processDayData(dayData),
+                            ...this.calculateDayTotals(dayData)
+                        };
+                    });
+
+                    return result;
+                },
+                totalVentas() {
+                    return this.processedData.reduce((sum, day) => sum + day.totalVentas, 0);
+                },
+                totalDinero() {
+                    return this.processedData.reduce((sum, day) => sum + day.totalDinero, 0);
+                },
+                totalKilos() {
+                    return this.processedData.reduce((sum, day) => sum + day.totalKilos, 0);
+                }
+            },
+            methods: {
+                async loadFile1(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    this.file1Name = file.name;
+                    this.loading = true;
+                    this.data1 = await this.processExcel(file);
+                    this.loading = false;
+                    this.file1 = true;
+                    this.isProcessed = false;
+                },
+                async loadFile2(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    this.file2Name = file.name;
+                    this.loading = true;
+                    this.data2 = await this.processExcel(file);
+                    this.loading = false;
+                    this.file2 = true;
+                    this.isProcessed = false;
+                },
+                processData() {
+                    if (!this.file1 && !this.file2) return;
+                    this.isProcessed = true;
+                },
+                processExcel(file) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            try {
+                                const data = new Uint8Array(e.target.result);
+                                const workbook = XLSX.read(data, { type: 'array' });
+                                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                                resolve(jsonData);
+                            } catch (error) {
+                                console.error('Error procesando Excel:', error);
+                                reject(error);
+                            }
+                        };
+                        reader.onerror = reject;
+                        reader.readAsArrayBuffer(file);
+                    });
+                },
+                parseDate(dateStr) {
+                    if (!dateStr) return null;
+                    
+                    // Formato: "09/12/2025 12:49:00"
+                    const parts = dateStr.split(' ')[0].split('/');
+                    if (parts.length !== 3) return null;
+                    
+                    const day = parseInt(parts[0]);
+                    const month = parseInt(parts[1]) - 1;
+                    const year = parseInt(parts[2]);
+                    
+                    return new Date(year, month, day);
+                },
+                formatDate(date) {
+                    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                                  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                    
+                    const dayName = days[date.getDay()];
+                    const day = date.getDate();
+                    const month = months[date.getMonth()];
+                    const year = date.getFullYear();
+                    
+                    return `${dayName}, ${day} de ${month} de ${year}`;
+                },
+                processDayData(dayData) {
+                    const groups = {
+                        '7+9907': { pvs: [7, 9907], name: 'PV 7 + 9907' },
+                        '8+9908': { pvs: [8, 9908], name: 'PV 8 + 9908' },
+                        '1+9901': { pvs: [1, 9901], name: 'PV 1 + 9901' },
+                        '2+9902': { pvs: [2, 9902], name: 'PV 2 + 9902' }
+                    };
+
+                    const result = [];
+
+                    Object.keys(groups).forEach(groupKey => {
+                        const group = groups[groupKey];
+                        
+                        // Procesar ventas activas
+                        const activeData = this.processGroup(
+                            dayData.filter(row => 
+                                group.pvs.includes(row.PV) && 
+                                (!row.Anulado || row.Anulado.toLowerCase() === 'no')
+                            )
+                        );
+                        
+                        if (activeData.ventas > 0) {
+                            result.push({
+                                name: group.name,
+                                ...activeData,
+                                anulado: false
+                            });
+                        }
+
+                        // Procesar ventas anuladas si está habilitado
+                        if (this.showAnuladas) {
+                            const anuladaData = this.processGroup(
+                                dayData.filter(row => 
+                                    group.pvs.includes(row.PV) && 
+                                    row.Anulado && 
+                                    row.Anulado.toLowerCase() === 'si'
+                                )
+                            );
+                            
+                            if (anuladaData.ventas > 0) {
+                                result.push({
+                                    name: group.name,
+                                    ...anuladaData,
+                                    anulado: true
+                                });
+                            }
+                        }
+                    });
+
+                    return result;
+                },
+                processGroup(data) {
+                    const comprobantes = new Set();
+                    let totalKilos = 0;
+                    let totalDinero = 0;
+
+                    data.forEach(row => {
+                        comprobantes.add(row.Comprobante);
+                        totalKilos += parseFloat(row.Cantidad || 0);
+                    });
+
+                    // Para calcular el dinero, sumamos el TotalVenta solo una vez por comprobante
+                    const comprobantesSeen = new Set();
+                    data.forEach(row => {
+                        if (!comprobantesSeen.has(row.Comprobante)) {
+                            comprobantesSeen.add(row.Comprobante);
+                            totalDinero += parseFloat(row.TotalVenta || 0);
+                        }
+                    });
+
+                    return {
+                        ventas: comprobantes.size,
+                        kilos: totalKilos,
+                        dinero: totalDinero
+                    };
+                },
+                calculateDayTotals(dayData) {
+                    const filtered = this.showAnuladas ? 
+                        dayData : 
+                        dayData.filter(row => !row.Anulado || row.Anulado.toLowerCase() === 'no');
+
+                    const comprobantes = new Set();
+                    let totalKilos = 0;
+                    let totalDinero = 0;
+
+                    filtered.forEach(row => {
+                        comprobantes.add(row.Comprobante);
+                        totalKilos += parseFloat(row.Cantidad || 0);
+                    });
+
+                    const comprobantesSeen = new Set();
+                    filtered.forEach(row => {
+                        if (!comprobantesSeen.has(row.Comprobante)) {
+                            comprobantesSeen.add(row.Comprobante);
+                            totalDinero += parseFloat(row.TotalVenta || 0);
+                        }
+                    });
+
+                    return {
+                        totalVentas: comprobantes.size,
+                        totalKilos: totalKilos,
+                        totalDinero: totalDinero
+                    };
+                },
+                exportToCSV() {
+                    if (!this.isProcessed || this.processedData.length === 0) return;
+
+                    // Crear las filas del CSV
+                    const rows = [];
+                    
+                    // Encabezado
+                    rows.push(['Fecha', 'Kilos', 'Importe', 'Cantidad de Comprobantes', 'Punto de Venta']);
+
+                    // Datos
+                    this.processedData.forEach(day => {
+                        day.puntosVenta.forEach(pv => {
+                            rows.push([
+                                day.date,
+                                pv.kilos.toFixed(2),
+                                pv.dinero.toFixed(2),
+                                pv.ventas,
+                                pv.name
+                            ]);
+                        });
+                    });
+
+                    // Convertir a CSV
+                    const csvContent = rows.map(row => 
+                        row.map(cell => {
+                            // Escapar comillas y envolver en comillas si contiene comas
+                            const cellStr = String(cell);
+                            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                                return '"' + cellStr.replace(/"/g, '""') + '"';
+                            }
+                            return cellStr;
+                        }).join(',')
+                    ).join('\n');
+
+                    // Crear y descargar el archivo
+                    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    
+                    const now = new Date();
+                    const filename = `ventas_detalle_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.csv`;
+                    
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+                formatNumber(num) {
+                    return new Intl.NumberFormat('es-AR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(num);
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
