@@ -469,6 +469,98 @@
             color: var(--accent-primary);
         }
 
+        .anulados-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.625rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-danger);
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .sucursal-summary {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            border: 2px solid var(--accent-primary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1px;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .sucursal-name {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .sucursal-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .sucursal-stat {
+            text-align: center;
+        }
+
+        .sucursal-stat-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .sucursal-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sucursal-stat-value.money {
+            color: var(--accent-success);
+        }
+
+        .sucursal-stat-value.weight {
+            color: var(--accent-warning);
+        }
+
+        .sucursal-stat-value.count {
+            color: var(--accent-primary);
+        }
+
+        .sucursal-stat-value.anulados {
+            color: var(--accent-danger);
+        }
+
+        @media (max-width: 768px) {
+            .sucursal-summary {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .sucursal-name {
+                text-align: center;
+            }
+
+            .sucursal-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .no-data {
             text-align: center;
             padding: 4rem 2rem;
@@ -649,7 +741,12 @@
                         <template v-for="pv in day.puntosVenta" :key="pv.name + pv.anulado">
                             <div class="pv-item" :class="{ 'anulado': pv.anulado }">
                                 <div class="pv-header">
-                                    <div class="pv-name">{{ pv.name }}</div>
+                                    <div class="pv-name">
+                                        {{ pv.name }}
+                                        <span v-if="pv.anuladosCount > 0 && !pv.anulado" class="anulados-badge">
+                                            🚫 {{ pv.anuladosCount }} anuladas
+                                        </span>
+                                    </div>
                                     <div class="pv-badge" :class="{ 'anulado': pv.anulado }">
                                         {{ pv.anulado ? 'ANULADAS' : 'ACTIVAS' }}
                                     </div>
@@ -671,6 +768,31 @@
                             </div>
                         </template>
                     </div>
+
+                    <!-- Resumen por Sucursal -->
+                    <template v-for="sucursal in day.sucursales" :key="sucursal.nombre">
+                        <div class="sucursal-summary">
+                            <div class="sucursal-name">{{ sucursal.nombre }}</div>
+                            <div class="sucursal-stats">
+                                <div class="sucursal-stat">
+                                    <div class="sucursal-stat-label">Total Ventas</div>
+                                    <div class="sucursal-stat-value count">{{ sucursal.ventas }}</div>
+                                </div>
+                                <div class="sucursal-stat" v-if="!hideMoney">
+                                    <div class="sucursal-stat-label">Total Dinero</div>
+                                    <div class="sucursal-stat-value money">${{ formatNumber(sucursal.dinero) }}</div>
+                                </div>
+                                <div class="sucursal-stat">
+                                    <div class="sucursal-stat-label">Total Kilos</div>
+                                    <div class="sucursal-stat-value weight">{{ formatNumber(sucursal.kilos) }}</div>
+                                </div>
+                                <div class="sucursal-stat" v-if="sucursal.anulados > 0">
+                                    <div class="sucursal-stat-label">Anuladas</div>
+                                    <div class="sucursal-stat-value anulados">{{ sucursal.anulados }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </template>
@@ -695,7 +817,7 @@
                     dateFrom: '',
                     dateTo: '',
                     showAnuladas: true,
-                    hideMoney: true,
+                    hideMoney: false,
                     data1: [],
                     data2: [],
                     loading: false,
@@ -740,11 +862,16 @@
                     const result = Object.keys(byDate).sort().map(dateKey => {
                         const dayData = byDate[dateKey];
                         const date = new Date(dateKey + 'T12:00:00');
+                        const puntosVenta = this.processDayData(dayData);
+                        
+                        // Calcular totales por sucursal
+                        const sucursales = this.calculateSucursalTotals(puntosVenta);
                         
                         return {
                             date: dateKey,
                             dateFormatted: this.formatDate(date),
-                            puntosVenta: this.processDayData(dayData),
+                            puntosVenta: puntosVenta,
+                            sucursales: sucursales,
                             ...this.calculateDayTotals(dayData)
                         };
                     });
@@ -832,16 +959,25 @@
                 },
                 processDayData(dayData) {
                     const groups = {
-                        '7+9907': { pvs: [7, 9907], name: 'PV 7 + 9907' },
-                        '8+9908': { pvs: [8, 9908], name: 'PV 8 + 9908' },
-                        '1+9901': { pvs: [1, 9901], name: 'PV 1 + 9901' },
-                        '2+9902': { pvs: [2, 9902], name: 'PV 2 + 9902' }
+                        '7+9907': { pvs: [7, 9907], name: 'PV 7 + 9907', sucursal: 'Sucursal 1' },
+                        '8+9908': { pvs: [8, 9908], name: 'PV 8 + 9908', sucursal: 'Sucursal 1' },
+                        '1+9901': { pvs: [1, 9901], name: 'PV 1 + 9901', sucursal: 'Sucursal 2' },
+                        '2+9902': { pvs: [2, 9902], name: 'PV 2 + 9902', sucursal: 'Sucursal 2' }
                     };
 
                     const result = [];
 
                     Object.keys(groups).forEach(groupKey => {
                         const group = groups[groupKey];
+                        
+                        // Contar ventas anuladas
+                        const anuladosCount = this.processGroup(
+                            dayData.filter(row => 
+                                group.pvs.includes(row.PV) && 
+                                row.Anulado && 
+                                row.Anulado.toLowerCase() === 'si'
+                            )
+                        ).ventas;
                         
                         // Procesar ventas activas
                         const activeData = this.processGroup(
@@ -851,11 +987,13 @@
                             )
                         );
                         
-                        if (activeData.ventas > 0) {
+                        if (activeData.ventas > 0 || anuladosCount > 0) {
                             result.push({
                                 name: group.name,
+                                sucursal: group.sucursal,
                                 ...activeData,
-                                anulado: false
+                                anulado: false,
+                                anuladosCount: anuladosCount
                             });
                         }
 
@@ -872,8 +1010,10 @@
                             if (anuladaData.ventas > 0) {
                                 result.push({
                                     name: group.name,
+                                    sucursal: group.sucursal,
                                     ...anuladaData,
-                                    anulado: true
+                                    anulado: true,
+                                    anuladosCount: 0
                                 });
                             }
                         }
@@ -905,6 +1045,33 @@
                         kilos: totalKilos,
                         dinero: totalDinero
                     };
+                },
+                calculateSucursalTotals(puntosVenta) {
+                    const sucursales = {};
+                    
+                    puntosVenta.forEach(pv => {
+                        if (!pv.sucursal) return;
+                        
+                        if (!sucursales[pv.sucursal]) {
+                            sucursales[pv.sucursal] = {
+                                nombre: pv.sucursal,
+                                ventas: 0,
+                                kilos: 0,
+                                dinero: 0,
+                                anulados: 0
+                            };
+                        }
+                        
+                        // Solo sumar las ventas activas (no las que ya están marcadas como anuladas)
+                        if (!pv.anulado) {
+                            sucursales[pv.sucursal].ventas += pv.ventas;
+                            sucursales[pv.sucursal].kilos += pv.kilos;
+                            sucursales[pv.sucursal].dinero += pv.dinero;
+                            sucursales[pv.sucursal].anulados += pv.anuladosCount;
+                        }
+                    });
+                    
+                    return Object.values(sucursales);
                 },
                 calculateDayTotals(dayData) {
                     const filtered = this.showAnuladas ? 
