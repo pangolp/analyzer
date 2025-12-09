@@ -347,6 +347,18 @@
             box-shadow: var(--shadow-glow);
         }
 
+        .sucursales-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .sucursal-row {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
         .day-header {
             background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
             padding: 1.5rem;
@@ -401,6 +413,13 @@
         .pv-item.anulado {
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), transparent);
             border-left: 3px solid var(--accent-danger);
+        }
+
+        .sucursal-summary {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            border: 2px solid var(--accent-primary);
+            border-radius: 0;
+            padding: 1.5rem;
         }
 
         .pv-header {
@@ -483,18 +502,6 @@
             margin-left: 0.5rem;
         }
 
-        .sucursal-summary {
-            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
-            border: 2px solid var(--accent-primary);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-top: 1px;
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 2rem;
-            align-items: center;
-        }
-
         .sucursal-name {
             font-weight: 700;
             font-size: 1.25rem;
@@ -506,8 +513,8 @@
 
         .sucursal-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: 1fr;
+            gap: 1rem;
         }
 
         .sucursal-stat {
@@ -524,7 +531,7 @@
         }
 
         .sucursal-stat-value {
-            font-size: 1.5rem;
+            font-size: 1.125rem;
             font-weight: 700;
             color: var(--text-primary);
             font-variant-numeric: tabular-nums;
@@ -547,15 +554,6 @@
         }
 
         @media (max-width: 768px) {
-            .sucursal-summary {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .sucursal-name {
-                text-align: center;
-            }
-
             .sucursal-stats {
                 grid-template-columns: 1fr;
             }
@@ -737,62 +735,67 @@
                         </div>
                     </div>
 
-                    <div class="pv-grid">
-                        <template v-for="pv in day.puntosVenta" :key="pv.name + pv.anulado">
-                            <div class="pv-item" :class="{ 'anulado': pv.anulado }">
-                                <div class="pv-header">
-                                    <div class="pv-name">
-                                        {{ pv.name }}
-                                        <span v-if="pv.anuladosCount > 0 && !pv.anulado" class="anulados-badge">
-                                            🚫 {{ pv.anuladosCount }} anuladas
-                                        </span>
-                                    </div>
-                                    <div class="pv-badge" :class="{ 'anulado': pv.anulado }">
-                                        {{ pv.anulado ? 'ANULADAS' : 'ACTIVAS' }}
-                                    </div>
-                                </div>
-                                <div class="pv-stats">
-                                    <div class="pv-stat">
-                                        <div class="pv-stat-label">Ventas</div>
-                                        <div class="pv-stat-value count">{{ pv.ventas }}</div>
-                                    </div>
-                                    <div class="pv-stat" v-if="!hideMoney">
-                                        <div class="pv-stat-label">Dinero</div>
-                                        <div class="pv-stat-value money">${{ formatNumber(pv.dinero) }}</div>
-                                    </div>
-                                    <div class="pv-stat">
-                                        <div class="pv-stat-label">Kilos</div>
-                                        <div class="pv-stat-value weight">{{ formatNumber(pv.kilos) }}</div>
+                    <!-- Sucursales separadas -->
+                    <div class="sucursales-container">
+                        <template v-for="(pvList, sucursalNombre) in day.sucursalGroups" :key="sucursalNombre">
+                            <div class="sucursal-row">
+                                <div class="pv-grid">
+                                    <!-- Puntos de venta de la sucursal -->
+                                    <template v-for="pv in pvList" :key="pv.name + pv.anulado">
+                                        <div class="pv-item" :class="{ 'anulado': pv.anulado }">
+                                            <div class="pv-header">
+                                                <div class="pv-name">
+                                                    {{ pv.name }}
+                                                    <span v-if="pv.anuladosCount > 0 && !pv.anulado" class="anulados-badge">
+                                                        🚫 {{ pv.anuladosCount }} anuladas
+                                                    </span>
+                                                </div>
+                                                <div class="pv-badge" :class="{ 'anulado': pv.anulado }">
+                                                    {{ pv.anulado ? 'ANULADAS' : 'ACTIVAS' }}
+                                                </div>
+                                            </div>
+                                            <div class="pv-stats">
+                                                <div class="pv-stat">
+                                                    <div class="pv-stat-label">Ventas</div>
+                                                    <div class="pv-stat-value count">{{ pv.ventas }}</div>
+                                                </div>
+                                                <div class="pv-stat" v-if="!hideMoney">
+                                                    <div class="pv-stat-label">Dinero</div>
+                                                    <div class="pv-stat-value money">${{ formatNumber(pv.dinero) }}</div>
+                                                </div>
+                                                <div class="pv-stat">
+                                                    <div class="pv-stat-label">Kilos</div>
+                                                    <div class="pv-stat-value weight">{{ formatNumber(pv.kilos) }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Total de la sucursal -->
+                                    <div class="sucursal-summary" v-if="day.sucursales.find(s => s.nombre === sucursalNombre)">
+                                        <div class="sucursal-stats">
+                                            <div class="sucursal-stat">
+                                                <div class="sucursal-stat-label">Total Ventas</div>
+                                                <div class="sucursal-stat-value count">{{ day.sucursales.find(s => s.nombre === sucursalNombre).ventas }}</div>
+                                            </div>
+                                            <div class="sucursal-stat" v-if="!hideMoney">
+                                                <div class="sucursal-stat-label">Total Dinero</div>
+                                                <div class="sucursal-stat-value money">${{ formatNumber(day.sucursales.find(s => s.nombre === sucursalNombre).dinero) }}</div>
+                                            </div>
+                                            <div class="sucursal-stat">
+                                                <div class="sucursal-stat-label">Total Kilos</div>
+                                                <div class="sucursal-stat-value weight">{{ formatNumber(day.sucursales.find(s => s.nombre === sucursalNombre).kilos) }}</div>
+                                            </div>
+                                            <div class="sucursal-stat" v-if="day.sucursales.find(s => s.nombre === sucursalNombre).anulados > 0">
+                                                <div class="sucursal-stat-label">Anuladas</div>
+                                                <div class="sucursal-stat-value anulados">{{ day.sucursales.find(s => s.nombre === sucursalNombre).anulados }}</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </template>
                     </div>
-
-                    <!-- Resumen por Sucursal -->
-                    <template v-for="sucursal in day.sucursales" :key="sucursal.nombre">
-                        <div class="sucursal-summary">
-                            <div class="sucursal-name">{{ sucursal.nombre }}</div>
-                            <div class="sucursal-stats">
-                                <div class="sucursal-stat">
-                                    <div class="sucursal-stat-label">Total Ventas</div>
-                                    <div class="sucursal-stat-value count">{{ sucursal.ventas }}</div>
-                                </div>
-                                <div class="sucursal-stat" v-if="!hideMoney">
-                                    <div class="sucursal-stat-label">Total Dinero</div>
-                                    <div class="sucursal-stat-value money">${{ formatNumber(sucursal.dinero) }}</div>
-                                </div>
-                                <div class="sucursal-stat">
-                                    <div class="sucursal-stat-label">Total Kilos</div>
-                                    <div class="sucursal-stat-value weight">{{ formatNumber(sucursal.kilos) }}</div>
-                                </div>
-                                <div class="sucursal-stat" v-if="sucursal.anulados > 0">
-                                    <div class="sucursal-stat-label">Anuladas</div>
-                                    <div class="sucursal-stat-value anulados">{{ sucursal.anulados }}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
                 </div>
             </div>
         </template>
@@ -862,15 +865,15 @@
                     const result = Object.keys(byDate).sort().map(dateKey => {
                         const dayData = byDate[dateKey];
                         const date = new Date(dateKey + 'T12:00:00');
-                        const puntosVenta = this.processDayData(dayData);
+                        const processedDay = this.processDayData(dayData);
                         
                         // Calcular totales por sucursal
-                        const sucursales = this.calculateSucursalTotals(puntosVenta);
+                        const sucursales = this.calculateSucursalTotals(processedDay.pvData);
                         
                         return {
                             date: dateKey,
                             dateFormatted: this.formatDate(date),
-                            puntosVenta: puntosVenta,
+                            sucursalGroups: processedDay.sucursalGroups,
                             sucursales: sucursales,
                             ...this.calculateDayTotals(dayData)
                         };
@@ -965,7 +968,8 @@
                         '2+9902': { pvs: [2, 9902], name: 'PV 2 + 9902', sucursal: 'Sucursal 2' }
                     };
 
-                    const result = [];
+                    const pvData = [];
+                    const sucursalGroups = {};
 
                     Object.keys(groups).forEach(groupKey => {
                         const group = groups[groupKey];
@@ -988,13 +992,20 @@
                         );
                         
                         if (activeData.ventas > 0 || anuladosCount > 0) {
-                            result.push({
+                            const pvItem = {
                                 name: group.name,
                                 sucursal: group.sucursal,
                                 ...activeData,
                                 anulado: false,
                                 anuladosCount: anuladosCount
-                            });
+                            };
+                            pvData.push(pvItem);
+                            
+                            // Agrupar por sucursal
+                            if (!sucursalGroups[group.sucursal]) {
+                                sucursalGroups[group.sucursal] = [];
+                            }
+                            sucursalGroups[group.sucursal].push(pvItem);
                         }
 
                         // Procesar ventas anuladas si está habilitado
@@ -1008,18 +1019,20 @@
                             );
                             
                             if (anuladaData.ventas > 0) {
-                                result.push({
+                                const pvItemAnulado = {
                                     name: group.name,
                                     sucursal: group.sucursal,
                                     ...anuladaData,
                                     anulado: true,
                                     anuladosCount: 0
-                                });
+                                };
+                                pvData.push(pvItemAnulado);
+                                sucursalGroups[group.sucursal].push(pvItemAnulado);
                             }
                         }
                     });
 
-                    return result;
+                    return { pvData, sucursalGroups };
                 },
                 processGroup(data) {
                     const comprobantes = new Set();
