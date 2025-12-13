@@ -1125,14 +1125,17 @@
 
                     // Datos
                     this.processedData.forEach(day => {
-                        day.puntosVenta.forEach(pv => {
-                            rows.push([
-                                day.date,
-                                pv.kilos.toFixed(2),
-                                pv.dinero.toFixed(2),
-                                pv.ventas,
-                                pv.name
-                            ]);
+                        // Iterar por cada sucursal y sus puntos de venta
+                        Object.keys(day.sucursalGroups).forEach(sucursalNombre => {
+                            day.sucursalGroups[sucursalNombre].forEach(pv => {
+                                rows.push([
+                                    day.date,
+                                    pv.kilos.toFixed(2),
+                                    pv.dinero.toFixed(2),
+                                    pv.ventas,
+                                    pv.name
+                                ]);
+                            });
                         });
                     });
 
