@@ -1130,8 +1130,8 @@
                             day.sucursalGroups[sucursalNombre].forEach(pv => {
                                 rows.push([
                                     day.date,
-                                    pv.kilos.toFixed(2),
-                                    pv.dinero.toFixed(2),
+                                    pv.kilos.toFixed(2).replace('.', ','),  // Cambiar punto por coma
+                                    pv.dinero.toFixed(2).replace('.', ','), // Cambiar punto por coma
                                     pv.ventas,
                                     pv.name
                                 ]);
@@ -1139,16 +1139,16 @@
                         });
                     });
 
-                    // Convertir a CSV
+                    // Convertir a CSV con punto y coma como delimitador
                     const csvContent = rows.map(row => 
                         row.map(cell => {
-                            // Escapar comillas y envolver en comillas si contiene comas
                             const cellStr = String(cell);
-                            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                            // Si contiene punto y coma, comillas o saltos de línea, envolver en comillas
+                            if (cellStr.includes(';') || cellStr.includes('"') || cellStr.includes('\n')) {
                                 return '"' + cellStr.replace(/"/g, '""') + '"';
                             }
                             return cellStr;
-                        }).join(',')
+                        }).join(';')  // Usar punto y coma como delimitador
                     ).join('\n');
 
                     // Crear y descargar el archivo
