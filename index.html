@@ -1130,29 +1130,57 @@
                 exportToCSV() {
                     if (!this.isProcessed || this.processedData.length === 0) return;
 
-                    // Crear las filas del CSV
-                    const rows = [];
+                    // Crear un array temporal para ordenar los datos
+                    const dataRows = [];
 
-                    // Encabezado
-                    rows.push(['fecha', 'numero de caja', 'cantidad de kilos', 'cantidad de dinero', 'personas atendidas']);
-
-                    // Datos - solo incluir ventas NO anuladas
+                    // Recolectar todos los datos
                     this.processedData.forEach(day => {
-                        // Iterar por cada sucursal y sus puntos de venta
                         Object.keys(day.sucursalGroups).forEach(sucursalNombre => {
                             day.sucursalGroups[sucursalNombre].forEach(pv => {
                                 // Excluir las ventas anuladas del CSV
                                 if (!pv.anulado) {
-                                    rows.push([
-                                        this.formatDateCSV(day.date),
-                                        this.extractCajaNumber(pv.name),
-                                        pv.kilos.toFixed(2).replace('.', ','),
-                                        pv.dinero.toFixed(2).replace('.', ','),
-                                        pv.ventas
-                                    ]);
+                                    const cajaNum = parseInt(this.extractCajaNumber(pv.name));
+                                    const sucursal = (cajaNum === 1 || cajaNum === 2) ? 'GATICA' : 'PERTICONE';
+
+                                    dataRows.push({
+                                        fecha: day.date,
+                                        fechaFormateada: this.formatDateCSV(day.date),
+                                        caja: cajaNum,
+                                        kilos: pv.kilos.toFixed(2).replace('.', ','),
+                                        dinero: pv.dinero.toFixed(2).replace('.', ','),
+                                        emitidos: pv.ventas,
+                                        sucursal: sucursal
+                                    });
                                 }
                             });
                         });
+                    });
+
+                    // Ordenar por fecha (ascendente) y luego por número de caja (1, 2, 7, 8)
+                    dataRows.sort((a, b) => {
+                        // Primero comparar por fecha
+                        if (a.fecha < b.fecha) return -1;
+                        if (a.fecha > b.fecha) return 1;
+                        // Si las fechas son iguales, comparar por número de caja
+                        return a.caja - b.caja;
+                    });
+
+                    // Crear las filas del CSV
+                    const rows = [];
+
+                    // Encabezado
+                    rows.push(['FECHA', 'CAJA', 'KILOS', '$', 'EMITIDOS', 'SUCURSAL']);
+
+                    // Agregar datos ordenados
+                    dataRows.forEach(row => {
+                        rows.push([
+                            row.fechaFormateada,
+                            row.caja,
+                            row.kilos,
+                            row.dinero,
+                            row.emitidos,
+                            row.sucursal
+                        ]);
                     });
 
                     // Convertir a CSV con punto y coma como delimitador
