@@ -165,6 +165,12 @@
             margin-bottom: 5px;
         }
 
+        .product-unknown {
+            font-size: 11px;
+            color: #e67e22;
+            margin-bottom: 10px;
+        }
+
         .copy-btn {
             width: 100%;
             padding: 10px;
@@ -225,6 +231,23 @@
             opacity: 0.9;
         }
 
+        .csv-hint {
+            margin-top: 15px;
+            padding: 12px 16px;
+            background: #f0f4ff;
+            border-left: 3px solid #667eea;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .csv-hint code {
+            background: #e8edff;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
         @media (max-width: 768px) {
             .results-section {
                 grid-template-columns: 1fr;
@@ -250,12 +273,15 @@
                     {{ products.length }} productos cargados
                 </span>
             </div>
+            <div class="csv-hint">
+                Formato CSV esperado: <code>Producto;Codigo;Precio</code> — los mensajes se asignan automáticamente según el código.
+            </div>
         </div>
 
         <div v-if="products.length > 0" class="search-section">
-            <input 
-                type="text" 
-                v-model="searchQuery" 
+            <input
+                type="text"
+                v-model="searchQuery"
                 placeholder="Buscar por nombre, código o precio..."
                 class="search-input"
                 autofocus
@@ -283,6 +309,9 @@
             <div v-for="product in filteredProducts" :key="product.codigo" class="product-card">
                 <div class="product-name">{{ product.producto }}</div>
                 <div class="product-price">*${{ product.precio }} x kg*</div>
+                <div v-if="!product.enCatalogo && product.codigo" class="product-unknown">
+                    ⚠ Código {{ product.codigo }} no registrado en catálogo
+                </div>
                 <div class="product-messages">
                     <div v-for="(mensaje, index) in product.mensajes" :key="index">
                         {{ mensaje }}
@@ -296,6 +325,109 @@
     </div>
 
     <script>
+        // Catálogo de productos: código → { tipo, categoria?, peso? }
+        // Los mensajes se generan automáticamente en buildMensajes() según el tipo.
+        const CATALOG = {
+            // --- Cortes minoristas (Minorista - Cortado o en trozo / Sin tope) ---
+            '3':   { tipo: 'minorista', categoria: 'Asado' },
+            '5':   { tipo: 'minorista', categoria: 'Bife / churrasco / estofado' },
+            '9':   { tipo: 'minorista', categoria: 'Bife / churrasco / estofado' },
+            '10':  { tipo: 'minorista', categoria: 'Asado' },
+            '15':  { tipo: 'minorista', categoria: 'Milanesa' },
+            '17':  { tipo: 'minorista', categoria: 'Milanesa' },
+            '19':  { tipo: 'minorista', categoria: 'Milanesa' },
+            '20':  { tipo: 'minorista', categoria: 'Milanesa' },
+            '21':  { tipo: 'minorista', categoria: 'horno / asado' },
+            '24':  { tipo: 'minorista', categoria: 'Asado' },
+            '30':  { tipo: 'minorista', categoria: 'Bifes / churrasco' },
+            '31':  { tipo: 'minorista' },
+            '39':  { tipo: 'minorista' },
+            '40':  { tipo: 'minorista' },
+            '74':  { tipo: 'minorista', categoria: 'Asado' },
+
+            // --- Picada (Las cantidades que necesite / Sin tope / Mismo precio) ---
+            '37':  { tipo: 'picada' },
+            '38':  { tipo: 'picada' },
+
+            // --- Especiales ---
+            '41':  { tipo: 'asado_hueso',  categoria: 'Asado' },
+            '48':  { tipo: 'costillar',    categoria: 'Asado' },
+            '145': { tipo: 'cerdo_asado' },
+            '146': { tipo: 'animal_entero', peso: '12 a 18 kg' },
+            '147': { tipo: 'animal_entero', peso: '6 a 10 kg' },
+
+            // --- Cerdo (Precio por pieza / Categoría: Cerdo) ---
+            '4':   { tipo: 'cerdo' },
+            '87':  { tipo: 'cerdo' },
+            '89':  { tipo: 'cerdo' },
+            '90':  { tipo: 'cerdo_asado' },
+            '91':  { tipo: 'cerdo' },
+            '92':  { tipo: 'cerdo' },
+            '93':  { tipo: 'cerdo' },
+            '94':  { tipo: 'cerdo' },
+            '120': { tipo: 'cerdo' },
+            '121': { tipo: 'cerdo' },
+
+            // --- Chacinados y achuras (sin mensajes adicionales) ---
+            '86':  { tipo: 'sin_mensajes' },
+            '88':  { tipo: 'sin_mensajes' },
+            '101': { tipo: 'sin_mensajes' },
+            '102': { tipo: 'sin_mensajes' },
+            '105': { tipo: 'sin_mensajes' },
+            '109': { tipo: 'sin_mensajes' },
+            '110': { tipo: 'sin_mensajes' },
+            '114': { tipo: 'sin_mensajes' },
+            '123': { tipo: 'sin_mensajes' },
+            '124': { tipo: 'sin_mensajes' },
+            '137': { tipo: 'sin_mensajes' },
+
+            // --- Envasados (Precio por pieza cerrada / Peso promedio / Categoría) ---
+            '8':   { tipo: 'envasado', peso: '2 kg',         categoria: 'Bife / Asado' },
+            '27':  { tipo: 'envasado', peso: '2 kg',         categoria: 'Bife / Asado' },
+            '28':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Bife / Asado' },
+            '32':  { tipo: 'envasado', peso: '1 o 2 kg',     categoria: 'Bife' },
+            '43':  { tipo: 'envasado', peso: '1 o 2 kg',     categoria: 'Asado' },
+            '49':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Asado' },
+            '50':  { tipo: 'envasado', peso: 'de 7 a 10 kg', categoria: 'Milanesa / pernil' },
+            '51':  { tipo: 'envasado', peso: '5 kg',         categoria: 'Milanesa' },
+            '52':  { tipo: 'envasado', peso: '5 kg',         categoria: 'Milanesa / pernil' },
+            '53':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Bife / Churrasco / Estofado' },
+            '54':  { tipo: 'envasado', peso: '2 kg',         categoria: 'Milanesa' },
+            '56':  { tipo: 'envasado', peso: '1 o 2 kg',     categoria: 'Horno / Asado' },
+            '57':  { tipo: 'envasado', peso: 'de 4 a 6 kg',  categoria: 'Asado' },
+            '58':  { tipo: 'envasado', peso: '1,5 o 2 kg',   categoria: 'Asado' },
+            '59':  { tipo: 'envasado', peso: 'de 7 a 10 kg', categoria: 'Bife / Churrasco / Estofado' },
+            '60':  { tipo: 'envasado', peso: 'de 8 kg',      categoria: 'Bife / Churrasco / Estofado' },
+            '61':  { tipo: 'envasado', peso: 'de 4 a 6 kg',  categoria: 'Asado' },
+            '66':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Bife' },
+            '73':  { tipo: 'envasado', peso: '2 kg',         categoria: 'Horno / Asado' },
+            '80':  { tipo: 'envasado', peso: '5 kg',         categoria: 'Bife / Churrasco / Estofado' },
+            '81':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Asado' },
+            '82':  { tipo: 'envasado', peso: '3 kg',         categoria: 'Asado' },
+            '141': { tipo: 'envasado', peso: '3 kg',         categoria: 'Bife / Churrasco / Estofado' },
+            '144': { tipo: 'envasado' },
+
+            // --- Stock limitado con peso (milanesas) ---
+            '47':  { tipo: 'stock_peso', peso: '2 kg', categoria: 'Milanesa' },
+            '55':  { tipo: 'stock_peso', peso: '2 kg', categoria: 'Milanesa' },
+
+            // --- Stock limitado + proveedor terciarizado ---
+            '44':  { tipo: 'stock_terciarizado', categoria: 'Chacinado / Asado' },
+            '65':  { tipo: 'stock_terciarizado', categoria: 'Chacinado / Asado' },
+            '68':  { tipo: 'stock_terciarizado', categoria: 'Chacinado / Asado' },
+            '70':  { tipo: 'stock_terciarizado', categoria: 'Pollo' },
+            '71':  { tipo: 'stock_terciarizado', categoria: 'Pollo' },
+            '72':  { tipo: 'stock_terciarizado', categoria: 'Pollo' },
+            '100': { tipo: 'stock_terciarizado', categoria: 'Chacinado / Asado' },
+
+            // --- Hamburguesa ---
+            '139': { tipo: 'hamburguesa', categoria: 'Parrilla' },
+
+            // --- Varios ---
+            '280': { tipo: 'varios' },
+            '281': { tipo: 'varios' },
+        };
+
         const { createApp } = Vue;
 
         createApp({
@@ -307,24 +439,94 @@
             },
             computed: {
                 filteredProducts() {
-                    if (!this.searchQuery) {
-                        return this.products;
-                    }
+                    if (!this.searchQuery) return this.products;
 
                     const query = this.searchQuery.toLowerCase().trim();
-                    
-                    return this.products.filter(product => {
-                        return product.producto.toLowerCase().includes(query) ||
-                               product.codigo.toLowerCase().includes(query) ||
-                               product.precio.toLowerCase().includes(query);
-                    });
+                    return this.products.filter(product =>
+                        product.producto.toLowerCase().includes(query) ||
+                        product.codigo.toLowerCase().includes(query) ||
+                        product.precio.toLowerCase().includes(query)
+                    );
                 }
             },
             methods: {
                 removeQuotes(text) {
                     if (!text) return '';
-                    // Eliminar comillas dobles al inicio y al final
                     return text.replace(/^[""]|[""]$/g, '');
+                },
+                buildMensajes(codigo) {
+                    const entry = CATALOG[String(codigo).trim()];
+                    if (!entry) return [];
+
+                    const { tipo, categoria, peso } = entry;
+                    const msgs = [];
+
+                    switch (tipo) {
+                        case 'minorista':
+                            msgs.push('Minorista - Cortado o en trozo');
+                            msgs.push('Sin tope de comprar, ni máximo ni mínimo');
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'picada':
+                            msgs.push('Las cantidades que necesite');
+                            msgs.push('Sin tope de comprar, ni máximo ni mínimo');
+                            msgs.push('Mismo precio por mayor que por menor');
+                            break;
+                        case 'asado_hueso':
+                            msgs.push('Minorista - Cortado, marcado o en tira');
+                            msgs.push('Stock limitado');
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'costillar':
+                            msgs.push('Mayorista - Fresco o Congelado');
+                            msgs.push('Peso aproximado: 9 a 12 kg (entero)');
+                            msgs.push('Stock limitado');
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'animal_entero':
+                            msgs.push('Entero o mitad');
+                            msgs.push(`Peso aproximado: ${peso}`);
+                            msgs.push('Stock limitado');
+                            break;
+                        case 'cerdo':
+                            msgs.push('Precio por pieza');
+                            msgs.push('Categoría: Cerdo');
+                            break;
+                        case 'cerdo_asado':
+                            msgs.push('Mayorista - con vacio y matambre');
+                            msgs.push('Precio por pieza');
+                            msgs.push('Categoría: Cerdo');
+                            break;
+                        case 'envasado':
+                            msgs.push('Precio por pieza cerrada');
+                            if (peso) msgs.push(`Peso promedio: ${peso}`);
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'stock_peso':
+                            msgs.push('Stock limitado');
+                            if (peso) msgs.push(`Peso promedio: ${peso}`);
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'stock_terciarizado':
+                            msgs.push('Stock limitado');
+                            msgs.push('Proveedor terciarizado');
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'hamburguesa':
+                            msgs.push('Packs de 220 gramos');
+                            msgs.push('2 unidades por paquete');
+                            if (categoria) msgs.push(`Categoría: ${categoria}`);
+                            break;
+                        case 'varios':
+                            msgs.push('Venta por bolsa');
+                            msgs.push('Categoría: Varios');
+                            break;
+                        case 'sin_mensajes':
+                        default:
+                            break;
+                    }
+
+                    return msgs;
                 },
                 handleFileUpload(event) {
                     const file = event.target.files[0];
@@ -336,28 +538,18 @@
                         delimiter: ';',
                         complete: (results) => {
                             this.products = results.data.map(row => {
-                                const mensajes = [];
-                                
-                                // Extraer todos los mensajes (Mensaje 1, Mensaje 2, etc.)
-                                Object.keys(row).forEach(key => {
-                                    if (key.startsWith('Mensaje') && row[key]) {
-                                        mensajes.push(this.removeQuotes(row[key].trim()));
-                                    }
-                                });
-
+                                const codigo = this.removeQuotes(row.Codigo?.trim() || '');
                                 return {
                                     producto: this.removeQuotes(row.Producto?.trim() || ''),
-                                    codigo: this.removeQuotes(row.Codigo?.trim() || ''),
-                                    precio: this.removeQuotes(row.Precio?.trim() || ''),
-                                    mensajes: mensajes,
-                                    copied: false
+                                    codigo:   codigo,
+                                    precio:   this.removeQuotes(row.Precio?.trim() || ''),
+                                    mensajes: this.buildMensajes(codigo),
+                                    enCatalogo: codigo in CATALOG,
+                                    copied: false,
                                 };
                             });
 
-                            // Guardar en localStorage
                             localStorage.setItem('products', JSON.stringify(this.products));
-                            
-                            // Limpiar el input para permitir recargar el mismo archivo
                             event.target.value = '';
                         },
                         error: (error) => {
@@ -367,15 +559,10 @@
                 },
                 copyToClipboard(product) {
                     const text = this.formatProductText(product);
-                    
+
                     navigator.clipboard.writeText(text).then(() => {
-                        // Marcar como copiado
                         product.copied = true;
-                        
-                        // Resetear después de 2 segundos
-                        setTimeout(() => {
-                            product.copied = false;
-                        }, 2000);
+                        setTimeout(() => { product.copied = false; }, 2000);
                     }).catch(err => {
                         alert('Error al copiar: ' + err);
                     });
@@ -383,11 +570,9 @@
                 formatProductText(product) {
                     let text = `${product.producto}\n`;
                     text += `*$${product.precio} x kg*\n`;
-                    
                     product.mensajes.forEach(mensaje => {
                         text += `${mensaje}\n`;
                     });
-                    
                     return text.trim();
                 },
                 clearData() {
