@@ -593,6 +593,25 @@
             }
         }
 
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            color: var(--accent-primary);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .nav-link:hover {
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -638,6 +657,7 @@
         <div class="header">
             <h1>Sistema de Análisis de Ventas</h1>
             <p>Gestión Integral por Sucursal y Punto de Venta</p>
+            <a href="product.html" class="nav-link">→ Buscador de Productos</a>
         </div>
 
         <div class="upload-section">

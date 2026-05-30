@@ -266,6 +266,23 @@
             opacity: 0.9;
         }
 
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 20px;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .nav-link:hover {
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .results-section {
                 grid-template-columns: 1fr;
@@ -276,6 +293,7 @@
 <body>
     <div id="app">
         <div class="header">
+            <a href="index.html" class="nav-link">← Análisis de Ventas</a>
             <h1>🔍 Buscador de Productos</h1>
             <div class="upload-rows">
 
