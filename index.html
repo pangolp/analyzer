@@ -162,6 +162,31 @@
             word-break: break-all;
         }
 
+        .upload-clear-btn {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-danger);
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 1;
+        }
+
+        .upload-clear-btn:hover {
+            background: var(--accent-danger);
+            color: var(--bg-primary);
+        }
+
         .filters {
             display: flex;
             gap: 1rem;
@@ -452,7 +477,7 @@
 
         .pv-stats {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
             gap: 1rem;
         }
 
@@ -486,6 +511,10 @@
 
         .pv-stat-value.count {
             color: var(--accent-primary);
+        }
+
+        .pv-stat-value.units {
+            color: var(--accent-secondary);
         }
 
         .anulados-badge {
@@ -551,6 +580,25 @@
 
         .sucursal-stat-value.anulados {
             color: var(--accent-danger);
+        }
+
+        .sucursal-stat-value.units {
+            color: var(--accent-secondary);
+        }
+
+        .catalog-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid var(--accent-warning);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-warning);
+        }
+
+        .catalog-warning strong {
+            color: var(--text-primary);
         }
 
         @media (max-width: 768px) {
@@ -675,6 +723,14 @@
                     <input type="file" ref="file2Input" @change="loadFile2" accept=".xlsx,.xls">
                     <div class="upload-filename" v-if="file2">{{ file2Name }}</div>
                 </div>
+
+                <div class="upload-box" :class="{ 'has-file': catalogLoaded }" @click="$refs.catalogInput.click()">
+                    <button v-if="catalogLoaded" class="upload-clear-btn" @click.stop="clearCatalog" title="Quitar catálogo">✕</button>
+                    <div class="upload-icon">{{ catalogLoaded ? '✓' : '🏷️' }}</div>
+                    <div class="upload-label">Catálogo de Productos (opcional)</div>
+                    <input type="file" ref="catalogInput" @change="loadCatalog" accept=".xlsx,.xls">
+                    <div class="upload-filename" v-if="catalogLoaded">{{ catalogFileName }} ({{ Object.keys(catalogMap).length }} productos)</div>
+                </div>
             </div>
 
             <div class="filters">
@@ -712,6 +768,10 @@
         </div>
 
         <template v-else-if="isProcessed && processedData.length > 0">
+            <div class="catalog-warning" v-if="catalogLoaded && unmatchedProductCodes.length > 0">
+                ⚠ <strong>{{ unmatchedProductCodes.length }} producto(s)</strong> vendidos no están en el catálogo cargado y se contaron como KILOS por defecto. Actualizá y volvé a subir el Excel de Productos si corresponde: {{ unmatchedProductCodes.slice(0, 8).join(', ') }}<span v-if="unmatchedProductCodes.length > 8">…</span>
+            </div>
+
             <div class="summary-grid">
                 <div class="summary-card">
                     <div class="summary-label">Total Ventas</div>
@@ -727,6 +787,11 @@
                     <div class="summary-label">Total Kilos</div>
                     <div class="summary-value">{{ formatNumber(totalKilos) }}</div>
                     <div class="summary-subtitle">kilogramos</div>
+                </div>
+                <div class="summary-card" v-if="catalogLoaded">
+                    <div class="summary-label">Total Unidades</div>
+                    <div class="summary-value">{{ formatNumber(totalUnidades) }}</div>
+                    <div class="summary-subtitle">productos por unidad</div>
                 </div>
                 <div class="summary-card">
                     <div class="summary-label">Días Analizados</div>
@@ -751,6 +816,10 @@
                             <div class="day-total-item">
                                 <div class="day-total-label">Kilos</div>
                                 <div class="day-total-value">{{ formatNumber(day.totalKilos) }}</div>
+                            </div>
+                            <div class="day-total-item" v-if="catalogLoaded">
+                                <div class="day-total-label">Unidades</div>
+                                <div class="day-total-value">{{ formatNumber(day.totalUnidades) }}</div>
                             </div>
                         </div>
                     </div>
@@ -787,6 +856,10 @@
                                                     <div class="pv-stat-label">Kilos</div>
                                                     <div class="pv-stat-value weight">{{ formatNumber(pv.kilos) }}</div>
                                                 </div>
+                                                <div class="pv-stat" v-if="catalogLoaded">
+                                                    <div class="pv-stat-label">Unidades</div>
+                                                    <div class="pv-stat-value units">{{ formatNumber(pv.unidades) }}</div>
+                                                </div>
                                             </div>
                                         </div>
                                     </template>
@@ -805,6 +878,10 @@
                                             <div class="sucursal-stat">
                                                 <div class="sucursal-stat-label">Total Kilos</div>
                                                 <div class="sucursal-stat-value weight">{{ formatNumber(day.sucursales.find(s => s.nombre === sucursalNombre).kilos) }}</div>
+                                            </div>
+                                            <div class="sucursal-stat" v-if="catalogLoaded">
+                                                <div class="sucursal-stat-label">Total Unidades</div>
+                                                <div class="sucursal-stat-value units">{{ formatNumber(day.sucursales.find(s => s.nombre === sucursalNombre).unidades) }}</div>
                                             </div>
                                             <div class="sucursal-stat" v-if="day.sucursales.find(s => s.nombre === sucursalNombre).anulados > 0">
                                                 <div class="sucursal-stat-label">Anuladas</div>
@@ -844,7 +921,10 @@
                     data1: [],
                     data2: [],
                     loading: false,
-                    isProcessed: false
+                    isProcessed: false,
+                    catalogMap: {},
+                    catalogLoaded: false,
+                    catalogFileName: ''
                 };
             },
             computed: {
@@ -909,6 +989,21 @@
                 },
                 totalKilos() {
                     return this.processedData.reduce((sum, day) => sum + day.totalKilos, 0);
+                },
+                totalUnidades() {
+                    return this.processedData.reduce((sum, day) => sum + day.totalUnidades, 0);
+                },
+                unmatchedProductCodes() {
+                    if (!this.catalogLoaded) return [];
+                    const allData = [...this.data1, ...this.data2];
+                    const codes = new Set();
+                    allData.forEach(row => {
+                        const codigo = String(row.sCodProducto ?? '').trim();
+                        if (codigo && !(codigo in this.catalogMap)) {
+                            codes.add(`${codigo} (${row.Producto || 'sin nombre'})`);
+                        }
+                    });
+                    return Array.from(codes);
                 }
             },
             methods: {
@@ -930,6 +1025,47 @@
                     this.data2 = await this.processExcel(file);
                     this.loading = false;
                     this.file2 = true;
+                    this.isProcessed = false;
+                },
+                async loadCatalog(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    this.loading = true;
+                    const rows = await this.processExcel(file);
+
+                    const map = {};
+                    rows.forEach(row => {
+                        const codigo = String(row['*Codigo'] ?? '').trim();
+                        if (!codigo) return;
+                        map[codigo] = {
+                            nombre: row['*Descripcion'] || '',
+                            // Pesable = "S" => se vende por kilo. Cualquier otro valor => por unidad.
+                            pesable: String(row['Pesable'] ?? '').trim().toUpperCase() === 'S'
+                        };
+                    });
+
+                    this.catalogMap = map;
+                    this.catalogLoaded = true;
+                    this.catalogFileName = file.name;
+                    localStorage.setItem('ventasCatalogoProductos', JSON.stringify(map));
+
+                    this.loading = false;
+                    this.isProcessed = false;
+                    event.target.value = '';
+                },
+                isPesable(row) {
+                    // Sin catálogo cargado, o código no encontrado: se asume por kilo (comportamiento anterior).
+                    if (!this.catalogLoaded) return true;
+                    const codigo = String(row.sCodProducto ?? '').trim();
+                    const entry = this.catalogMap[codigo];
+                    return entry ? entry.pesable : true;
+                },
+                clearCatalog() {
+                    if (!confirm('¿Quitar el catálogo de productos cargado? Las ventas volverán a contarse todas como kilos.')) return;
+                    this.catalogMap = {};
+                    this.catalogLoaded = false;
+                    this.catalogFileName = '';
+                    localStorage.removeItem('ventasCatalogoProductos');
                     this.isProcessed = false;
                 },
                 processData() {
@@ -1070,11 +1206,17 @@
                 processGroup(data) {
                     const comprobantes = new Set();
                     let totalKilos = 0;
+                    let totalUnidades = 0;
                     let totalDinero = 0;
 
                     data.forEach(row => {
                         comprobantes.add(row.Comprobante);
-                        totalKilos += parseFloat(row.Cantidad || 0);
+                        const cantidad = parseFloat(row.Cantidad || 0);
+                        if (this.isPesable(row)) {
+                            totalKilos += cantidad;
+                        } else {
+                            totalUnidades += cantidad;
+                        }
                     });
 
                     // Para calcular el dinero, sumamos el TotalVenta solo una vez por comprobante
@@ -1089,6 +1231,7 @@
                     return {
                         ventas: comprobantes.size,
                         kilos: totalKilos,
+                        unidades: totalUnidades,
                         dinero: totalDinero
                     };
                 },
@@ -1103,6 +1246,7 @@
                                 nombre: pv.sucursal,
                                 ventas: 0,
                                 kilos: 0,
+                                unidades: 0,
                                 dinero: 0,
                                 anulados: 0
                             };
@@ -1112,6 +1256,7 @@
                         if (!pv.anulado) {
                             sucursales[pv.sucursal].ventas += pv.ventas;
                             sucursales[pv.sucursal].kilos += pv.kilos;
+                            sucursales[pv.sucursal].unidades += pv.unidades;
                             sucursales[pv.sucursal].dinero += pv.dinero;
                             sucursales[pv.sucursal].anulados += pv.anuladosCount;
                         }
@@ -1120,17 +1265,23 @@
                     return Object.values(sucursales);
                 },
                 calculateDayTotals(dayData) {
-                    const filtered = this.showAnuladas ? 
-                        dayData : 
+                    const filtered = this.showAnuladas ?
+                        dayData :
                         dayData.filter(row => !row.Anulado || row.Anulado.toLowerCase() === 'no');
 
                     const comprobantes = new Set();
                     let totalKilos = 0;
+                    let totalUnidades = 0;
                     let totalDinero = 0;
 
                     filtered.forEach(row => {
                         comprobantes.add(row.Comprobante);
-                        totalKilos += parseFloat(row.Cantidad || 0);
+                        const cantidad = parseFloat(row.Cantidad || 0);
+                        if (this.isPesable(row)) {
+                            totalKilos += cantidad;
+                        } else {
+                            totalUnidades += cantidad;
+                        }
                     });
 
                     const comprobantesSeen = new Set();
@@ -1144,6 +1295,7 @@
                     return {
                         totalVentas: comprobantes.size,
                         totalKilos: totalKilos,
+                        totalUnidades: totalUnidades,
                         totalDinero: totalDinero
                     };
                 },
@@ -1167,6 +1319,7 @@
                                         fechaFormateada: this.formatDateCSV(day.date),
                                         caja: cajaNum,
                                         kilos: pv.kilos.toFixed(2).replace('.', ','),
+                                        unidades: pv.unidades.toFixed(2).replace('.', ','),
                                         dinero: pv.dinero.toFixed(2).replace('.', ','),
                                         emitidos: pv.ventas,
                                         sucursal: sucursal
@@ -1189,7 +1342,7 @@
                     const rows = [];
 
                     // Encabezado
-                    rows.push(['FECHA', 'CAJA', 'KILOS', '$', 'EMITIDOS', 'SUCURSAL']);
+                    rows.push(['FECHA', 'CAJA', 'KILOS', 'UNIDADES', '$', 'EMITIDOS', 'SUCURSAL']);
 
                     // Agregar datos ordenados
                     dataRows.forEach(row => {
@@ -1197,6 +1350,7 @@
                             row.fechaFormateada,
                             row.caja,
                             row.kilos,
+                            row.unidades,
                             row.dinero,
                             row.emitidos,
                             row.sucursal
@@ -1235,6 +1389,20 @@
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                     }).format(num);
+                }
+            },
+            mounted() {
+                // Recuperar el catálogo de productos (kilo/unidad) guardado localmente,
+                // así no hace falta volver a subirlo en cada sesión.
+                const saved = localStorage.getItem('ventasCatalogoProductos');
+                if (saved) {
+                    try {
+                        this.catalogMap = JSON.parse(saved);
+                        this.catalogLoaded = true;
+                        this.catalogFileName = 'catálogo guardado';
+                    } catch (e) {
+                        console.error('Error al cargar catálogo guardado:', e);
+                    }
                 }
             }
         }).mount('#app');
